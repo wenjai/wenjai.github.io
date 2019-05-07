@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<!--
+Created using JS Bin
+http://jsbin.com
+
+Copyright (c) 2019 by wenjai (http://jsbin.com/govukiw/10/edit)
+
+Released under the MIT license: http://jsbin.mit-license.org
+-->
+<meta name="robots" content="noindex">
+<html>
+<head>
+<meta name="description" content="Early intervention children recording">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width">
+<head>
+  <title>兒童行為紀錄系統</title>
+  <script src="https://blocklypro.webduino.io/components/jquery/dist/jquery.min.js?rev=4a356126b9573eb7bd1e9a7494737410"></script>
+  <script src="https://blocklypro.webduino.io/dist/lib/webduino-all-0.4.20.min.js?rev=4426739c00d85325cb2d3d701fa50666"></script>
+  <script src="https://blocklypro.webduino.io/dist/webduino-blockly.min.js?rev=6a9037f813da79372168951bbfeafb49"></script>
+  <script src="https://blocklypro.webduino.io/dist/lib/firebase.min.js?rev=c0bfd493efd477d098a4ae9e92b13880"></script>
+  <script src="https://blocklypro.webduino.io/dist/lib/runtime.min.js?rev=683a69503433786202911b4d9f766100"></script>
+</head>
+
+    <title>兒童行為紀錄系統</title>
+<style id="jsbin-css">
+
+body { 
+  background-color:#FCF3CF; 
+  background-repeat: repeat; 
+}
+h1 {
+    background: pink;
+    color: black;
+    font-size: 200%;
+    padding: 12px;
+    text-align: center;
+}
+
+span {
+    background: orange;
+    color: blue;
+    padding: 3px 6px;
+    margin: 0 2px;
+}
+
+span.ilabel {
+    display: inline-block;
+    background: #D6EAF8;
+    color: blue;
+    padding: 6px 6px;
+    margin: 0px 2px;
+    width: 100px;
+    
+}
+
+input[type='text'] {
+    width: 300px;
+    height: 2em;   
+    text-indent: 6px;
+}
+input[type='radio'] {
+    width: 10px;
+    background: #FCF3CF;
+    text-indent: 6px;
+}
+body {
+    text-align: center;
+}
+button {
+  background-color: #4CAF50;
+  border: none;
+  color: white;
+  padding: 15px 32px;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+  font-size: 16px;
+  margin: 4px 2px;
+  cursor: pointer;
+}
+</style>
+</head>
+<body>
+    <h1>兒童行為紀錄系統</h1>
+    
+    <div id="myinput" style="">
+      <p><span class="ilabel">兒童姓名：</span><input type="text" id="iname"></p>
+      <p><span class="ilabel">設備：</span><input type="text" id="idid"></p>
+      <p><span class="ilabel">試算表 URL：</span><input type="text" id="url" value=""></p>
+      <p><span class="ilabel">試算表 分頁：</span><input type="text" id="tab" value=""></p>
+      <p><span class="ilabel">紀錄項目：</span>
+          <input type="radio" name='record' value="timer">計時
+          <input type="radio" name='record' value="epilepsy">次數
+          <input type="radio" name='record' value="choose">選擇
+      </p>
+      <p><button onclick="start()">開始</button></p>
+    </div>
+    
+    <div id="myoutput" style="display:none">
+      <p>兒童姓名為 <span id='name'></span>，設備 ID <span id='did'></span></p>
+      <p>選擇值為：<span id="answer">尚未輸入</span></p>
+    </div>
+    
+<script id="jsbin-javascript">
+var Name;
+var Did;
+var Url;
+var Tab;
+var Record;
+var myData;
+//var sending = false;
+var myboard = null;
+var button1;
+var button2;
+//var button;
+var rgbled;
+
+start = function () {
+    // 取值
+    Name = $("#iname").val();
+    Did = $("#idid").val();
+    Url = $("#url").val();
+    Tab = $("#tab").val();
+    //Record = $("#record").val();
+    Record = $('input[name=record]:checked').val()
+    // 設值
+    $("#name").text(Name);
+    $("#did").text(Did);
+
+  	$("#myinput").css('display', 'none');//隱藏輸入
+  	$("#myoutput").css('display', 'block');//顯示輸出
+  	RunBoard();//啟動
+};
+
+
+/*function colour_random() {
+  var num = Math.floor(Math.random() * Math.pow(2, 24));
+  return '#' + ('00000' + num.toString(16)).substr(-6);
+}*/
+
+boardTask = function(board) {
+    console.log("boardTask Called!");
+    board.samplingInterval = 200;
+     button1 = getButton(board, 16);
+     button2 = getButton(board, 14);
+     //button = getPullupButton(board, 4);
+    rgbled = getRGBLedCathode(board, 15, 12, 13);
+    
+        var myData= {};
+        myData.sheetUrl = Url;
+        myData.sheetName = Tab;
+    //計時
+    if (Record == 'timer') {
+      button1.on('pressed', function () {
+        answer='開始';
+        $('#answer').text(answer);
+        myData.column0 = new Date();
+        myData.column1 = Name;
+        myData.column2 = answer;
+        writeSheetData(myData);
+        rgbled.setColor('#33cc00');
+      });
+      button2.on('pressed', function () {
+        answer='停止';
+        $('#answer').text(answer);
+        myData.column0 = new Date();
+        myData.column1 = Name;
+        myData.column2 = answer;
+        writeSheetData(myData);
+        rgbled.setColor('#ff0000');
+      });
+    } else if(Record =='epilepsy'){ //次數
+        button1.on('pressed', function () {
+          answer='+';
+          $('#answer').text(answer);
+          myData.column0 = new Date();
+          myData.column1 = Name;
+          myData.column2 = answer;
+          writeSheetData(myData);
+          rgbled.setColor('#33cc00');
+        });
+        button2.on('pressed', function () {
+          answer='-';
+          $('#answer').text(answer);
+          myData.column0 = new Date();
+          myData.column1 = Name;
+          myData.column2 = answer;
+          writeSheetData(myData);
+          rgbled.setColor('#ff0000');
+        });
+      } else if(Record =='choose'){ //選擇
+          button1.on('pressed', function () {
+            answer='正確';
+            $('#answer').text(answer);
+            myData.column0 = new Date();
+            myData.column1 = Name;
+            myData.column2 = answer;
+            writeSheetData(myData);
+            rgbled.setColor('#33cc00');
+         });
+          button2.on('pressed', function () {
+            answer='錯誤';
+            $('#answer').text(answer);
+            myData.column0 = new Date();
+            myData.column1 = Name;
+            myData.column2 = answer;
+            writeSheetData(myData);
+            rgbled.setColor('#ff0000');
+          });
+        }
+     
+       
+    console.log(Record);
+    board.on('error', function (err) {
+        console.log("board Error Called!");
+        board.error = err;
+        myboard = null;
+        $('#answer').text("ERROR，請重啟設備！");
+        RunBoard();
+    });
+}
+
+RunBoard = function () {
+    console.log("myboard, DEVICE = ", myboard, Did);
+    myboard = new webduino.WebArduino({board: 'Smart', device: Did, transport: 'mqtt', multi: true});
+    myboard.once(webduino.BoardEvent.READY, boardTask);
+}
+
+
+</script>
+</body>
+</html>
